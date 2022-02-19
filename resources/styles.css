@@ -1,0 +1,60 @@
+body{
+    display: flex;
+    min-height: 500px;
+}
+
+main{
+    background-color: lightgray;
+    flex: 2;
+}
+
+aside{
+    background-color: darkblue;
+    flex: 1;
+    text-align: center;
+}
+
+.undone{
+    color: darkred;
+}
+
+/* new */
+ul{
+    padding-left: 0;
+}
+li{
+    list-style: none;
+    font-size: 1.5rem;
+    color: white;
+    text-align: left;
+    padding: 0.1rem 1.5rem;
+    margin: 0 1.5rem;
+    cursor: pointer;
+}
+
+li:hover{
+    border: 0.2rem outset white;
+    border-radius: 1rem;
+}
+
+p{
+    display: inline-block;
+    width: 46%;
+}
+p input{
+    width: 70%;
+    min-width: 100px;
+}
+
+form button{
+    display: block;
+    margin: 0 auto;
+}
+
+fieldset p *{
+    display: block;
+}
+
+input:invalid{
+    border-color: red;
+}
