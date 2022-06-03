@@ -5,94 +5,176 @@ const wrapper = document.querySelector('.project');
 const addBtn = document.querySelector('#add-project');
 addBtn.addEventListener('click', addProject);
 
-const projects = [];
-
 // Project object (not factory function)
-function Project(name) {
+function Project(name, tasks = []) {
     this.name = name;
-    this.tasks = [];
+    this.tasks = tasks;
     this.addTask = function (taskName, taskDate) {
         this.tasks.push({ taskName, taskDate, isDone: false });
+        this.tasks.sort((prev, next) => prev.taskDate > next.taskDate ? 1 : -1)
     }
 }
 
+// Projects storage
+let projects = [];
 
-const modelProject = new Project("Example 1");
-projects.push(modelProject);
-modelProject.addTask("task1", "2020-01-01");
-modelProject.addTask("task2", "2020-01-02");
+if (localStorage.getItem('storedProjects') !== null) {
+    const savedProjects = JSON.parse(localStorage.getItem('storedProjects'));
+    savedProjects.forEach(element => {
+        projects.push(new Project(element.name, element.tasks));
+    });
+} else {
+    const example = new Project("Example 1");
+    projects.push(example);
+    example.addTask("Task2", "2020-01-01");
+    example.addTask("Task1", "2019-01-01");
+    example.addTask("Task3", "2021-01-01");
+    example.tasks[1].isDone = true;
+}
 
-const modelElement = document.createElement('li');
-modelElement.classList.add('project1');
-modelElement.textContent = modelProject.name;
-container.appendChild(modelElement);
-modelElement.addEventListener('click', (e) => editProject(e.target));
+
+function initialDisplay() {
+    clearContent(container, 'li');
+
+    projects.forEach(project => {
+        const modelElement = document.createElement('li');
+        modelElement.textContent = project.name;
+        container.appendChild(modelElement);
+        modelElement.addEventListener('click', (e) => {
+            editProject(e.target.textContent);
+        });
+    });
+};
+initialDisplay();
 
 function addProject() {
+    const form = document.createElement('form');
     const newInput = document.createElement('input');
-    const validBtn = document.createElement('button');
-    validBtn.textContent = "V";
-    container.appendChild(newInput);
-    container.appendChild(validBtn);
+    newInput.setAttribute('name', 'projName');
 
-    validBtn.addEventListener('click', () => {
-        let newProject = document.createElement('li');
-        newProject.textContent = newInput.value;
-        projects.push(new Project(newInput.value));
-        newProject.classList.add(`pro-${projects.length}`); // check utility
-        container.appendChild(newProject);
-        container.removeChild(newInput);
-        container.removeChild(validBtn);
-        newProject.addEventListener('click', (e) => editProject(e.target));
+    const validBtn = document.createElement('button');
+    const cancelBtn = document.createElement('button');
+    validBtn.setAttribute('type', 'submit');
+    cancelBtn.setAttribute('type', 'reset');
+    validBtn.textContent = "V";
+    cancelBtn.textContent = "X";
+
+    form.appendChild(newInput);
+    form.appendChild(validBtn);
+    form.appendChild(cancelBtn);
+    container.appendChild(form);
+
+    form.addEventListener('submit', e => {
+        e.preventDefault();
+        if (newInput.value) {
+            projects.push(new Project(newInput.value));
+            saveProjects();
+            let newProject = document.createElement('li');
+            container.appendChild(newProject);
+            newProject.textContent = newInput.value;
+            newProject.classList.add(`pro-${projects.length}`); // check utility
+            newProject.addEventListener('click', () => editProject(form.projName.value));
+            container.removeChild(form);
+            editProject(newInput.value);
+        }
     });
+
+    cancelBtn.addEventListener('click', () => {
+        container.removeChild(form);
+    })
 }
 
-function editProject(selectedProject) {
-    // Clear previous project field
-    const oldTasks = wrapper.querySelector('ul');
-    const oldForm = wrapper.querySelector('form');
-    const oldInput = wrapper.querySelector('input');
-    const oldBtn = wrapper.querySelector('button');
-    
-    if (oldForm != undefined) {
-        wrapper.removeChild(oldForm);
-        wrapper.removeChild(oldTasks);
-        wrapper.removeChild(oldInput);
-        wrapper.removeChild(oldBtn);
-    }
 
+function editProject(projectName) {
+    // Clear previous project field
+    clearContent(wrapper);
+    document.querySelector('.color-code').classList.add('unhide');
+
+    const currentProj = projects.find(project => project.name == projectName);
     // Project field
     const title = document.createElement('input');
+    title.value = projectName;
+
     const validate = document.createElement('button');
-    title.value = selectedProject.textContent;
-    validate.textContent = "Done";
-    validate.addEventListener('click', () => { selectedProject.textContent = title.value });
+    validate.classList.add('save');
+    validate.textContent = "Save";
+    validate.addEventListener('click', () => {
+        currentProj.name = title.value;
+        document.querySelector('.color-code').classList.remove('unhide');
+        clearContent(wrapper);
+        saveProjects();
+        initialDisplay();
+    });
+
+    const remove = document.createElement('button');
+    remove.classList.add('del');
+    remove.textContent = "Erase Project";
+    remove.addEventListener('click', () => {
+        projects.splice(projects.findIndex(project => project.name === projectName), 1);
+        clearContent(wrapper);
+        document.querySelector('.color-code').classList.remove('unhide');
+        initialDisplay();
+        saveProjects();
+    });
 
     wrapper.appendChild(title);
     wrapper.appendChild(validate);
+    wrapper.appendChild(remove);
 
     // Tasks field
     const taskList = document.createElement('ul');
-    const currentProj = 
-    projects[projects.findIndex(project => project.name == selectedProject.textContent)];
+    taskList.className = "tasks";
 
     // Display tasks
     for (let i of currentProj.tasks) {
         const newTask = document.createElement('li');
-        newTask.textContent = `${i.taskName} - ${i.taskDate}`;
-        newTask.addEventListener('click', (e)=>{
-            const currentTask = currentProj.tasks
-            [currentProj.tasks.findIndex(task => task.taskName == e.target.textContent.split(" - ")[0])]
-            //console.log(currentTask);
-            e.target.classList.toggle('undone');
-            currentTask.isDone = !currentTask.isDone;
-        });
+        const nameEl = document.createElement('span');
+        newTask.appendChild(nameEl);
+        nameEl.textContent = `${i.taskName} - ${i.taskDate}`;
+        newTask.className = (i.isDone) ? "" : "undone";
+        newTask.setAttribute('title', (i.isDone) ? "Click to mark as Pending.." : "Click to mark as Done");
+
         taskList.appendChild(newTask);
+
+        newTask.addEventListener('click', (e) => {
+            let target, duo;
+            if (e.target.tagName === 'SPAN') {
+                duo = e.target.textContent.split(' - ');
+                target = e.target.parentElement;
+            } else {
+                duo = e.target.querySelector('span').textContent.split(' - ');
+                target = e.target;
+            }
+            const currentTask = currentProj.tasks.find(task => {
+                return task.taskName == duo[0] && task.taskDate == duo[1];
+            });
+            target.classList.toggle('undone');
+            target.classList.toggle('done');
+            currentTask.isDone = !currentTask.isDone;
+            newTask.setAttribute('title', (i.isDone) ? "Click to mark as Pending.." : "Click to mark as Done");
+        });
+        newTask.addEventListener('mouseenter', (e) => {
+            const duo = e.target.querySelector('span').textContent.split(' - ');
+            const del = document.createElement('button');
+            del.textContent = "Delete Task";
+            newTask.appendChild(del);
+
+            del.addEventListener('click', e => {
+                e.stopPropagation();
+                currentProj.tasks.splice(currentProj.tasks.findIndex(task => {
+                    return task.taskName == duo[0] && task.taskDate == duo[1];
+                }), 1);
+                editProject(projectName);
+            })
+        });
+        newTask.addEventListener('mouseleave', (e) => {
+            const del = e.target.querySelectorAll('button');
+            del.forEach(btn => btn.remove());
+        });
     }
 
     // Form area ** Important to prevent page from realoading
     const form = document.createElement('form');
-    form.addEventListener('submit', (e) => {e.preventDefault();}) 
     const mainField = document.createElement('fieldset');
     const legend = document.createElement('legend');
     legend.textContent = "Task form";
@@ -113,58 +195,55 @@ function editProject(selectedProject) {
     date.setAttribute('type', 'date');
     date.setAttribute('required', '');
 
-    nameField.appendChild(nameLbl);nameField.appendChild(name);
-    dateField.appendChild(dateLbl);dateField.appendChild(date);
+    nameField.appendChild(nameLbl); nameField.appendChild(name);
+    dateField.appendChild(dateLbl); dateField.appendChild(date);
     mainField.appendChild(nameField);
     mainField.appendChild(dateField);
     form.appendChild(mainField);
-    
+
     // Input process
-    name.addEventListener('input', ()=>{
-            name.setCustomValidity('');
-            name.checkValidity('');
+    name.addEventListener('input', () => {
+        name.setCustomValidity('');
+        name.checkValidity('');
     });
-    name.addEventListener('invalid', ()=>{
-        if (name.value == ''){
+    name.addEventListener('invalid', () => {
+        if (name.value == '') {
             name.setCustomValidity('Write a task name');
-        }else{
+        } else {
             name.setCustomValidity('Task should be at least 2 charachters long');
         }
     });
 
     const btn = document.createElement('button');
     btn.textContent = "Submit task";
+    btn.setAttribute('type', 'submit');
 
-    btn.addEventListener('click', () => {
-        if(name.validity.valid && date.validity.valid){
-            submitTask();
+    // Submit process
+    form.addEventListener('submit', e => {
+        e.preventDefault();
+        if (name.validity.valid && date.validity.valid) {
+            submitTask(name.value, date.value, projectName);
         }
     });
-
-    function submitTask(){
-        currentProj.addTask(name.value, date.value);
-        const newTask = document.createElement('li');
-        newTask.textContent = `${name.value} - ${date.value}`;
-        newTask.addEventListener('click', (e)=>{
-            console.log(currentProj);
-            const currentTask = currentProj.tasks
-            [currentProj.tasks.findIndex(task => task.taskName == e.target.textContent.split(" - ")[0])]
-            console.log(currentTask);
-            if(currentTask.isDone){
-                e.target.classList.remove('done');
-                e.target.classList.add('undone');
-                currentTask.isDone = !currentTask.isDone;
-            } else{
-                e.target.classList.remove('undone');
-                e.target.classList.add('done');
-                currentTask.isDone = !currentTask.isDone;
-            }
-        });
-        taskList.appendChild(newTask);
-    }
 
     mainField.appendChild(btn);
 
     wrapper.appendChild(taskList);
     wrapper.appendChild(form);
+}
+
+function saveProjects() {
+    localStorage.setItem('storedProjects', JSON.stringify(projects));
+}
+
+function submitTask(taskName, taskDate, projectName) {
+    const name = taskName.split(' ').map(word => word[0].toUpperCase() + word.slice(1)).join(' ');
+    const currentProj = projects.find(project => project.name === projectName)
+    currentProj.addTask(name, taskDate);
+    editProject(projectName);
+}
+
+function clearContent(parent, children = '*') {
+    const targets = parent.querySelectorAll(children);
+    targets.forEach(child => child.remove());
 }
